@@ -3,33 +3,27 @@ import re
 import json
 
 search_term = "राजनीति"
-page_start, page_end =  1,5  # Each page has 10 articles
+page_start, page_end =  1,4 # Each page has 10 articles
 
-CLEANR = re.compile('<.*?>') 
+try:
+    with open(f"{search_term}.json") as f:
+        data = json.load(f)
+except:
+    data = {"page": 1}
+
 
 def cleanhtml(raw_html):
-  cleantext = re.sub(CLEANR, '', raw_html)
-  return cleantext
+    CLEANR = re.compile('<.*?>') 
+    cleantext = re.sub(CLEANR, '', raw_html)
+    return cleantext
 
-def delete_file_content(file_ptr) -> None:
-  """Delete all the content of file"""
-  file_ptr.seek(0)
-  file_ptr.truncate()
-
-def add_page_index(file_p, search_title, page_no):
-    """Update the page index of the file to the last fetch page from the site"""
-    file_p.seek(0)
-    data = json.load(file_p)
-    data[search_title] = page_no
-    delete_file_content(file_p)
-    json.dump(data, file_p)
-
-def load_article(file_p, search_term, current_page):
+def load_article(search_term,page_start):
     """Returns article list based on search_title"""
+
     cleaned_articles = []  # list of articles
 
     for page in range(
-        current_page + 1, page_end
+        page_start, page_end
     ):  # each page contains 10 articles in generally
         url = (
             "https://bg.annapurnapost.com/api/search?title="
@@ -45,10 +39,10 @@ def load_article(file_p, search_term, current_page):
             for i, _ in enumerate(items):  # loop over the articles
                 content = items[i]["content"]
                 cleaned_article = cleanhtml(content)
-                cleaned_articles.append(
+                cleaned_articles.extend(
                     cleaned_article
                 )  # append individual articles in a list
-            add_page_index(file_p, search_term, page)  # update the page index
+            page_start +=1 # update the page index
             print(f"Loading Page {page}")
 
         except KeyError:
@@ -63,28 +57,21 @@ def load_article(file_p, search_term, current_page):
 
 
 if __name__ == "__main__":
+    try:
+        current_page = page_start
+        with open(f"{search_term}.json","r+") as file:
+            previous_articles = json.load(file)
+            new_articles = load_article(search_term, current_page)
+            previous_articles.extend(
+                new_articles
+            )  # append previously loaded articles with newly fetched articles
+            json.dump(previous_articles, file)
+    except (KeyError, FileNotFoundError):
+        current_page = page_start
+        with open(f"{search_term}.json", "w") as file:
+            new_articles = load_article(search_term, current_page)
+            try:
+                json.dump(new_articles, file)
+            except:
+                print("Error occured while fetching!")
 
-    with open("index.json", "r+") as index_f:
-        index_data = json.load(index_f)
-        try:
-            current_page = index_data[search_term]
-            with open(f"{search_term}.json", "r+") as f:
-                previous_articles = json.load(f, strict=False)
-                new_articles = load_article(index_f, search_term, current_page)
-                previous_articles.extend(
-                    new_articles
-                )  # append previously loaded articles with newly fetched articles
-                delete_file_content(f)
-                json.dump(previous_articles, f)
-
-        except (KeyError, FileNotFoundError):
-            index_data.update({search_term: 0})
-            current_page = index_data[search_term]
-            delete_file_content(index_f)
-            json.dump(index_data, index_f)
-            with open(f"{search_term}.json", "w") as f:
-                new_articles = load_article(index_f, search_term, current_page)
-                try:
-                    json.dump(new_articles, f)
-                except:
-                    print("Fetch Error!!")
