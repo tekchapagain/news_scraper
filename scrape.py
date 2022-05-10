@@ -4,13 +4,15 @@ import re
 
 
 search_title = "राजनीति"  #Change search Term here
-page_end = 3         #Change Page number here
+page_end = 3       #Change Page number here
 
 try:
     with open(f"{search_title}.json") as f:
         data = json.load(f)
 except:
     data = {"page": 1, "items": []}
+
+update = data["page"]
 
 def cleanhtml(raw_html):
     CLEANR = re.compile('<.*?>') 
@@ -54,4 +56,7 @@ if __name__ == "__main__":
         with open(f"{search_title}.json", "w") as f:
             json.dump(data, f)
 
-print("Completed!")
+if update != page_end:
+    print("Completed!")
+else:
+    print("Already updated!")
